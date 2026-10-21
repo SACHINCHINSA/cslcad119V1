@@ -6,21 +6,22 @@ function normalizeRemoteFileUrl(url) {
     try {
         const parsed = new URL(trimmed);
         const host = parsed.hostname.toLowerCase();
-        if (host === 'github.com' || host === 'www.github.com') {
-            const parts = parsed.pathname.split('/').filter(Boolean);
-            const blobIndex = parts.indexOf('blob');
-            if (blobIndex >= 0 && parts.length > blobIndex + 3) {
-                const owner = parts[0];
-                const repo = parts[1];
-                const branch = parts[blobIndex + 1];
-                const filePath = parts.slice(blobIndex + 2).join('/');
-                const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
-                console.log('Normalized GitHub blob URL to raw URL:', rawUrl);
-                return rawUrl;
+        const pathParts = parsed.pathname.split('/').filter(Boolean);
+
+        if ((host === 'github.com' || host === 'www.github.com') && pathParts.length >= 4) {
+            const blobIndex = pathParts.indexOf('blob');
+            if (blobIndex >= 0 && pathParts.length > blobIndex + 3) {
+                const owner = pathParts[0];
+                const repo = pathParts[1];
+                const ref = pathParts[blobIndex + 1];
+                const filePath = pathParts.slice(blobIndex + 2).join('/');
+                if (owner && repo && ref && filePath) {
+                    return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${filePath}`;
+                }
             }
         }
     } catch (err) {
-        console.warn('normalizeRemoteFileUrl failed for', trimmed, err);
+        console.warn('normalizeRemoteFileUrl failed for', url, err);
     }
 
     return trimmed;
@@ -490,7 +491,7 @@ const ProjectManager = {
                                 if (!fileData) {
                                     const response = await fetch(url, { cache: 'no-store' });
                                     if (!response.ok) {
-                                        throw new Error(`Failed to load ${item.name}: ${response.status}`);
+                                        throw new Error(`Failed to fetch ${url}: ${response.status}`);
                                     }
                                     const blob = await response.blob();
                                     fileData = new File([blob], item.name, { type: blob.type || 'application/octet-stream' });
